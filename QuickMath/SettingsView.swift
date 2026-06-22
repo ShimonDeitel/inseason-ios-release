@@ -6,54 +6,60 @@ struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
 
     @AppStorage("quickmath.theme") private var themeRaw = AppTheme.system.rawValue
-
     @State private var showPaywall = false
     @State private var showDeleteConfirm = false
 
-    private var theme: Binding<AppTheme> {
-        Binding(
-            get: { AppTheme(rawValue: themeRaw) ?? .system },
-            set: { themeRaw = $0.rawValue }
-        )
+    private var theme: AppTheme {
+        get { AppTheme(rawValue: themeRaw) ?? .system }
+        nonmutating set { themeRaw = newValue.rawValue }
     }
 
     var body: some View {
         NavigationStack {
             ZStack {
                 QMBackground()
-
-                List {
-                    // Pro section
-                    Section("Subscription") {
+                Form {
+                    // Pro status
+                    Section("Inseason Pro") {
                         if store.isPro {
                             HStack {
-                                Text("Tideline Pro")
+                                Image(systemName: "checkmark.seal.fill")
+                                    .foregroundStyle(Color.qmAccent)
+                                Text("Pro Active")
+                                    .foregroundStyle(.primary)
                                 Spacer()
-                                Text("Active")
-                                    .foregroundStyle(Color.qmCorrect)
-                                    .font(.subheadline.weight(.medium))
+                                Link("Manage", destination: URL(string: "https://apps.apple.com/account/subscriptions")!)
+                                    .font(.subheadline)
+                                    .foregroundStyle(Color.qmAccent)
                             }
-                            Link("Manage Subscription",
-                                 destination: URL(string: "https://apps.apple.com/account/subscriptions")!)
-                                .foregroundStyle(Color.qmAccent)
                         } else {
-                            Button("Unlock Tideline Pro") {
+                            Button {
+                                Haptics.tap()
                                 showPaywall = true
+                            } label: {
+                                HStack {
+                                    Image(systemName: "leaf.fill")
+                                        .foregroundStyle(Color.qmAccent)
+                                    Text("Unlock Inseason Pro")
+                                        .foregroundStyle(Color.qmAccent)
+                                }
                             }
-                            .foregroundStyle(Color.qmAccent)
                         }
 
-                        Button("Restore Purchase") {
+                        Button {
+                            Haptics.tap()
                             Task { await store.restore() }
+                        } label: {
+                            Text("Restore Purchase")
+                                .foregroundStyle(Color.qmAccent)
                         }
-                        .foregroundStyle(Color.qmAccent)
                     }
 
                     // Appearance
                     Section("Appearance") {
-                        Picker("Theme", selection: theme) {
+                        Picker("Theme", selection: $themeRaw) {
                             ForEach(AppTheme.allCases) { t in
-                                Text(t.label).tag(t)
+                                Text(t.label).tag(t.rawValue)
                             }
                         }
                         .pickerStyle(.segmented)
@@ -61,46 +67,42 @@ struct SettingsView: View {
 
                     // Legal
                     Section("Legal") {
-                        Link("Privacy Policy",
-                             destination: URL(string: "https://shimondeitel.github.io/tideline-site/privacy.html")!)
+                        Link("Privacy Policy", destination: URL(string: "https://shimondeitel.github.io/inseason-site/privacy.html")!)
                             .foregroundStyle(Color.qmAccent)
-                        Link("Terms of Use",
-                             destination: URL(string: "https://www.apple.com/legal/internet-services/itunes/dev/stdeula/")!)
+                        Link("Terms of Use", destination: URL(string: "https://www.apple.com/legal/internet-services/itunes/dev/stdeula/")!)
                             .foregroundStyle(Color.qmAccent)
                     }
 
                     // Data
                     Section("Data") {
-                        Button("Delete All Data") {
+                        Button(role: .destructive) {
                             showDeleteConfirm = true
+                        } label: {
+                            Text("Delete All Data")
                         }
-                        .foregroundStyle(Color.qmWrong)
                     }
                 }
-                .scrollContentBackground(.hidden)
             }
             .navigationTitle("Settings")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
+                ToolbarItem(placement: .topBarTrailing) {
                     Button("Done") { dismiss() }
+                        .foregroundStyle(Color.qmAccent)
                 }
             }
             .sheet(isPresented: $showPaywall) {
                 PaywallView()
                     .environmentObject(store)
             }
-            .confirmationDialog(
-                "Delete all Tideline data?",
-                isPresented: $showDeleteConfirm,
-                titleVisibility: .visible
-            ) {
+            .confirmationDialog("Delete all data?", isPresented: $showDeleteConfirm, titleVisibility: .visible) {
                 Button("Delete All", role: .destructive) {
                     appModel.deleteAllData()
+                    dismiss()
                 }
                 Button("Cancel", role: .cancel) {}
             } message: {
-                Text("This removes all your logged energy entries and cannot be undone.")
+                Text("This removes all your saved picks. This action cannot be undone.")
             }
         }
     }
